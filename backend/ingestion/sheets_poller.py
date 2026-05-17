@@ -158,41 +158,38 @@ async def process_cv(candidate_email: str, cv_url: str):
 
 
 def send_followup_email(candidate_email: str, candidate_name: str):
-    if not settings.SMTP_PASSWORD:
-        logger.warning(f"SMTP not configured. Skipping email to {candidate_email}.")
+    if not settings.RESEND_API_KEY:
+        logger.warning(f"Resend not configured. Skipping email to {candidate_email}.")
         return
 
     link = f"{settings.APP_BACKEND_URL}/auth/linkedin/start?email={candidate_email}"
-    msg = EmailMessage()
-    msg.set_content(f"""
-Hi {candidate_name},
 
-Thank you for applying! Please connect your LinkedIn profile so our AI can review your application:
-{link}
+    import urllib.request
+    import json as json_lib
 
-Thanks,
-The TalentRank Team
-""")
-    msg['Subject'] = 'Next Step: Connect your LinkedIn Profile'
-    msg['From'] = settings.SMTP_USER
-    msg['To'] = candidate_email
+    payload = {
+        "from": "TalentRank <onboarding@resend.dev>",
+        "to": [candidate_email],
+        "subject": "Next Step: Connect your LinkedIn Profile",
+        "text": f"Hi {candidate_name},\n\nThank you for applying! Please connect your LinkedIn profile:\n{link}\n\nThanks,\nThe TalentRank Team"
+    }
 
     try:
-        server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT)
-        server.starttls()
-        server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-        server.send_message(msg)
-        server.quit()
-        logger.info(f"Follow-up email sent successfully to {candidate_email}.")
-    except smtplib.SMTPAuthenticationError:
-        logger.error("SMTP authentication failed. Check SMTP_USER and SMTP_PASSWORD in config.")
-    except smtplib.SMTPConnectError:
-        logger.error(f"Could not connect to SMTP server {settings.SMTP_HOST}:{settings.SMTP_PORT}.")
-    except smtplib.SMTPRecipientsRefused:
-        logger.error(f"Email address refused by SMTP server: {candidate_email}.")
+        data = json_lib.dumps(payload).encode()
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=data,
+            headers={
+                "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            method="POST"
+        )
+        urllib.request.urlopen(req)
+        logger.info(f"Email sent successfully to {candidate_email}.")
     except Exception as e:
         logger.error(f"Failed to send email to {candidate_email}: {e}")
-
+        
 
 async def poll_sheets():
     logger.info("Starting Google Sheets poll...")

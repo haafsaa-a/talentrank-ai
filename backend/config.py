@@ -16,7 +16,8 @@ class Settings(BaseSettings):
     APP_FRONTEND_URL: str = "http://localhost:5173"
     ENCRYPTION_KEY: str
     APP_BACKEND_URL: str = "http://localhost:8000"
-
+    RESEND_API_KEY: str = ""
+    
     class Config:
         env_file = ".env"
 
