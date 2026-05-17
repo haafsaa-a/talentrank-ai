@@ -52,9 +52,9 @@ export default function CandidateDetail() {
       try {
         let data;
         try {
-          data = (await axios.get(`http://localhost:8000/api/candidates/${id}`)).data;
+          data = (await axios.get(`https://talentrank-backend.onrender.com/api/candidates/${id}`)).data;
         } catch {
-          const mock = (await axios.get('http://localhost:8000/api/mock/candidates')).data;
+          const mock = (await axios.get('https://talentrank-backend.onrender.com/api/mock/candidates')).data;
           data = mock.find(c => c.id === id);
           if (!data) throw new Error('Not found');
         }

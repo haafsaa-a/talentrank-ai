@@ -15,8 +15,8 @@ export default function Dashboard() {
     const fetchAll = async () => {
       try {
         const [candResp, statsResp] = await Promise.allSettled([
-          axios.get('http://localhost:8000/api/candidates'),
-          axios.get('http://localhost:8000/api/stats'),
+          axios.get('https://talentrank-backend.onrender.com/api/candidates'),
+          axios.get('https://talentrank-backend.onrender.com/api/stats'),
         ]);
 
         let data = [];
@@ -24,7 +24,7 @@ export default function Dashboard() {
           data = Array.isArray(candResp.value.data) ? candResp.value.data : [];
         } else {
           try {
-            const mock = await axios.get('http://localhost:8000/api/mock/candidates');
+            const mock = await axios.get('https://talentrank-backend.onrender.com/api/mock/candidates');
             data = Array.isArray(mock.data) ? mock.data : [];
           } catch {
             setFetchError('Unable to load candidates. Please try again later.');

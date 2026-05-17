@@ -6,7 +6,7 @@ export default function LandingPage() {
   const [stats, setStats] = useState({ total: 0, done: 0, pending: 0 })
 
   useEffect(() => {
-    axios.get('http://localhost:8000/api/stats')
+    axios.get('https://talentrank-backend.onrender.com/api/stats')
       .then(r => setStats(r.data))
       .catch(() => setStats({ total: 12, done: 8, pending: 4 }))
   }, [])

@@ -40,7 +40,7 @@ export default function CandidateCard({ candidate, onDelete }) {
     e.stopPropagation();
     if (!window.confirm(`Delete ${candidate.name || 'this candidate'}?`)) return;
     try {
-      await axios.delete(`http://localhost:8000/api/candidates/${candidate.id}`);
+      await axios.delete(`https://talentrank-backend.onrender.com/api/candidates/${candidate.id}`);
       onDelete(candidate.id);
     } catch (err) {
       alert('Failed to delete candidate.');
