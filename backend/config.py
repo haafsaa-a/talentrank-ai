@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str= ""
     APP_FRONTEND_URL: str = "http://localhost:5173"
     ENCRYPTION_KEY: str
+    APP_BACKEND_URL: str = "http://localhost:8000"
 
     class Config:
         env_file = ".env"

@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 import smtplib
 import re
@@ -21,19 +22,36 @@ SCOPES = [
 
 
 def is_valid_email(email: str) -> bool:
-    """TC-03: Validates email format before processing."""
     pattern = r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$'
     return bool(re.match(pattern, email.strip()))
 
 
+def get_credentials(scopes):
+    """Returns Google credentials from either JSON string or file path."""
+    creds_value = settings.GOOGLE_SHEETS_CREDENTIALS
+    if not creds_value:
+        logger.warning("GOOGLE_SHEETS_CREDENTIALS is not set.")
+        return None
+    try:
+        if creds_value.strip().startswith("{"):
+            creds_info = json.loads(creds_value)
+            return Credentials.from_service_account_info(creds_info, scopes=scopes)
+        else:
+            if not os.path.exists(creds_value):
+                logger.warning(f"Credentials file not found at: {creds_value}")
+                return None
+            return Credentials.from_service_account_file(creds_value, scopes=scopes)
+    except Exception as e:
+        logger.error(f"Failed to load credentials: {e}")
+        return None
+
+
 def get_sheets_service():
-    if not os.path.exists(settings.GOOGLE_SHEETS_CREDENTIALS):
+    creds = get_credentials(SCOPES)
+    if not creds:
         logger.warning("Google Sheets credentials not found. Aborting poll.")
         return None
     try:
-        creds = Credentials.from_service_account_file(
-            settings.GOOGLE_SHEETS_CREDENTIALS, scopes=SCOPES
-        )
         service = build('sheets', 'v4', credentials=creds)
         logger.info("Google Sheets service initialized successfully.")
         return service
@@ -43,7 +61,6 @@ def get_sheets_service():
 
 
 async def download_cv_from_drive(drive_url: str, creds) -> bytes:
-    """Downloads CV PDF from Google Drive using service account credentials."""
     if not drive_url:
         logger.warning("No Drive URL provided for CV download.")
         return None
@@ -73,10 +90,10 @@ async def download_cv_from_drive(drive_url: str, creds) -> bytes:
                 logger.info(f"CV downloaded successfully for file ID: {file_id}")
                 return response.content
             elif response.status_code == 403:
-                logger.error(f"CV download forbidden (403) for file {file_id}. Check Drive sharing permissions.")
+                logger.error(f"CV download forbidden (403) for file {file_id}.")
                 return None
             elif response.status_code == 404:
-                logger.error(f"CV file not found (404) for file {file_id}. File may have been deleted.")
+                logger.error(f"CV file not found (404) for file {file_id}.")
                 return None
             else:
                 logger.warning(f"CV download failed with status {response.status_code} for file {file_id}.")
@@ -91,7 +108,6 @@ async def download_cv_from_drive(drive_url: str, creds) -> bytes:
 
 
 async def process_cv(candidate_email: str, cv_url: str):
-    """Downloads, parses and saves CV text for a candidate."""
     if not cv_url:
         logger.warning(f"No CV URL provided for {candidate_email}. Skipping CV processing.")
         return
@@ -100,10 +116,10 @@ async def process_cv(candidate_email: str, cv_url: str):
         from scrapers.cv_parser import parse_cv
         from sqlalchemy import select
 
-        creds_for_drive = Credentials.from_service_account_file(
-            settings.GOOGLE_SHEETS_CREDENTIALS,
-            scopes=['https://www.googleapis.com/auth/drive.readonly']
-        )
+        creds_for_drive = get_credentials(['https://www.googleapis.com/auth/drive.readonly'])
+        if not creds_for_drive:
+            logger.error("Could not load Drive credentials for CV download.")
+            return
 
         pdf_bytes = await download_cv_from_drive(cv_url, creds_for_drive)
 
@@ -131,8 +147,7 @@ async def process_cv(candidate_email: str, cv_url: str):
             if cand:
                 cand.cv_text = cv_text
                 await db.commit()
-                logger.info(f"CV parsed and saved successfully for {candidate_email}. "
-                            f"Extracted {len(cv_text)} characters.")
+                logger.info(f"CV parsed and saved successfully for {candidate_email}.")
             else:
                 logger.error(f"Candidate {candidate_email} not found in DB when saving CV text.")
 
@@ -147,7 +162,7 @@ def send_followup_email(candidate_email: str, candidate_name: str):
         logger.warning(f"SMTP not configured. Skipping email to {candidate_email}.")
         return
 
-    link = f"http://localhost:8000/auth/linkedin/start?email={candidate_email}"
+    link = f"{settings.APP_BACKEND_URL}/auth/linkedin/start?email={candidate_email}"
     msg = EmailMessage()
     msg.set_content(f"""
 Hi {candidate_name},
@@ -180,8 +195,6 @@ The TalentRank Team
 
 
 async def poll_sheets():
-    """Polls Google Sheets and ingests new rows."""
-
     logger.info("Starting Google Sheets poll...")
 
     service = get_sheets_service()
@@ -209,32 +222,26 @@ async def poll_sheets():
 
         for i, row in enumerate(values[1:], start=2):
 
-            # TC-02: Skip rows missing required fields
             if len(row) < 3:
-                logger.warning(f"Row {i}: Skipped — insufficient columns. "
-                               f"Expected at least 3, got {len(row)}. Row data: {row}")
+                logger.warning(f"Row {i}: Skipped — insufficient columns. Got {len(row)}. Row data: {row}")
                 error_count += 1
                 continue
 
             name = row[1].strip() if row[1] else ""
             email = row[2].strip() if row[2] else ""
 
-            # TC-02: Validate name not empty
             if not name:
                 logger.warning(f"Row {i}: Skipped — name field is empty.")
                 error_count += 1
                 continue
 
-            # TC-02: Validate email not empty
             if not email:
                 logger.warning(f"Row {i}: Skipped — email field is empty.")
                 error_count += 1
                 continue
 
-            # TC-03: Validate email format
             if not is_valid_email(email):
-                logger.warning(f"Row {i}: Skipped — invalid email format: '{email}'. "
-                               f"Please enter a valid email address.")
+                logger.warning(f"Row {i}: Skipped — invalid email format: '{email}'.")
                 error_count += 1
                 continue
 
@@ -251,28 +258,21 @@ async def poll_sheets():
                     existing = res.scalar_one_or_none()
 
                     if existing:
-                        # TC-04: Duplicate detected — update existing record
                         existing.name = name
                         existing.github_url = github_url or existing.github_url
                         existing.portfolio_url = portfolio_url or existing.portfolio_url
 
-                        # Update cv_url only if a new one is provided
                         if cv_url and existing.cv_url != cv_url:
                             existing.cv_url = cv_url
 
                         await db.commit()
                         duplicate_count += 1
-                        logger.info(
-                            f"Row {i}: Duplicate entry detected for '{email}'. "
-                            f"Profile updated with latest submission at {datetime.utcnow().isoformat()}Z."
-                        )
+                        logger.info(f"Row {i}: Duplicate entry for '{email}'. Profile updated.")
 
-                        # Re-process CV if new URL provided but no text yet
                         if cv_url and not existing.cv_text:
                             await process_cv(email, cv_url)
 
                     else:
-                        # TC-01: New candidate — insert with timestamp
                         new_cand = Candidate(
                             name=name,
                             email=email,
@@ -285,16 +285,10 @@ async def poll_sheets():
                         db.add(new_cand)
                         await db.commit()
                         success_count += 1
-                        logger.info(
-                            f"Row {i}: New candidate '{name}' ({email}) stored successfully "
-                            f"at {datetime.utcnow().isoformat()}Z. "
-                            f"Status: linkedin_pending. Follow-up email queued."
-                        )
+                        logger.info(f"Row {i}: New candidate '{name}' ({email}) stored successfully.")
 
-                        # Send LinkedIn follow-up email
                         send_followup_email(email, name)
 
-                        # Process CV if provided
                         if cv_url:
                             await process_cv(email, cv_url)
 
@@ -303,7 +297,6 @@ async def poll_sheets():
                 error_count += 1
                 continue
 
-        # TC-01: Poll summary
         logger.info(
             f"Poll complete — "
             f"{success_count} new candidate(s) added, "
@@ -312,4 +305,4 @@ async def poll_sheets():
         )
 
     except Exception as e:
-        logger.error(f"Critical error during sheet polling: {e}") 
+        logger.error(f"Critical error during sheet polling: {e}")
