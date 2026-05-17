@@ -14,3 +14,7 @@ backend/.env
 
 # Docker
 .docker/
+
+backend/service_account.json
+
+backend/.env
