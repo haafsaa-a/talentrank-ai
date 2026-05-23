@@ -81,14 +81,17 @@ export default function Dashboard() {
     setFilteredCandidates(result);
   };
 
-  const handleDelete = (deletedId) => {
+  const handleDelete = async (deletedId) => {
     setCandidates(prev => prev.filter(c => c.id !== deletedId));
     setFilteredCandidates(prev => prev.filter(c => c.id !== deletedId));
-    setStats(prev => ({
-      ...prev,
-      total: prev.total - 1,
-      done: prev.done - 1,
-    }));
+
+    // Refetch accurate stats from backend
+    try {
+      const statsResp = await axios.get('https://talentrank-backend.onrender.com/api/stats');
+      setStats(statsResp.data);
+    } catch (e) {
+      console.error('Failed to refresh stats', e);
+    }
   };
 
   return (
@@ -128,7 +131,7 @@ export default function Dashboard() {
       {loading && (
         <div className="grid grid-cols-1 gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map(i => (
-            <div key={i} className="animate-pulse bg-white rounded-2xl border border-slate-100 p-6 h-64">
+            <div key={i} className="animate-pulse bg-white rounded-2xl border border-slate.100 p-6 h-64">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-slate-200 rounded-xl flex-shrink-0" />
                 <div className="flex-1 min-w-0">
