@@ -193,7 +193,13 @@ async def generate_profile(
 
     logger.info(f"Generating profile for {candidate_id} with sources: {available_sources}")
 
-    # Build context block
+    # Normalize portfolio_text to string
+    if isinstance(portfolio_text, dict):
+        portfolio_text_str = portfolio_text.get('text', '')
+    elif isinstance(portfolio_text, str):
+        portfolio_text_str = portfolio_text
+    else:
+        portfolio_text_str = str(portfolio_text) if portfolio_text else ''
     context = f"""
 --- LINKEDIN ---
 Name: {linkedin_data.get('name', 'N/A')}
@@ -212,7 +218,7 @@ Primary Language: {github_data.get('primary_language', 'N/A')}
 Total Stars: {github_data.get('total_stars', 0)}
 
 --- PORTFOLIO ---
-{portfolio_text or 'No portfolio data available.'}
+{portfolio_text_str or 'No portfolio data available.'}
 """
 
     # TC-20 / TC-21 / TC-22: prompt includes tone, conflict, and partial-data instructions
@@ -305,7 +311,7 @@ async def _save_profile(
                     select(Profile).where(Profile.candidate_id == uuid.UUID(candidate_id))
                 )
                 existing_profile = existing.scalar_one_or_none()
-
+                portfolio_text_str = portfolio_text if isinstance(portfolio_text, str) else portfolio_text.get('text', '') if isinstance(portfolio_text, dict) else str(portfolio_text)
                 if existing_profile:
                     existing_profile.summary          = profile_data.get("summary")
                     existing_profile.skills           = profile_data.get("skills", [])
@@ -313,7 +319,7 @@ async def _save_profile(
                     existing_profile.experience_years = profile_data.get("experience_years")
                     existing_profile.domain_tags      = profile_data.get("domain_tags", [])
                     existing_profile.raw_github_data  = github_data
-                    existing_profile.raw_portfolio_text = portfolio_text
+                    existing_profile.raw_portfolio_text = portfolio_text_str
                     existing_profile.raw_linkedin_data  = linkedin_data
                     existing_profile.generated_at     = datetime.utcnow()
                     existing_profile.cv_skills        = profile_data.get("cv_skills", [])
@@ -330,7 +336,7 @@ async def _save_profile(
                         experience_years=profile_data.get("experience_years"),
                         domain_tags=profile_data.get("domain_tags", []),
                         raw_github_data=github_data,
-                        raw_portfolio_text=portfolio_text,
+                        raw_portfolio_text=portfolio_text_str,
                         raw_linkedin_data=linkedin_data,
                         generated_at=datetime.utcnow(),
                         cv_skills=profile_data.get("cv_skills", []),
