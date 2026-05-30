@@ -13,6 +13,7 @@ const domainColors = {
   Design: 'bg-pink-50 text-pink-700 border-pink-100',
 };
 
+// Guard: name may be missing or empty
 function Avatar({ name, large }) {
   const safeName = name && name.trim() ? name : '?';
   const initials = safeName === '?'
@@ -28,6 +29,7 @@ function Avatar({ name, large }) {
   );
 }
 
+// Reusable placeholder shown when a data section is unavailable
 function UnavailablePlaceholder({ label }) {
   return (
     <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-slate-50 border border-dashed border-slate-200">
@@ -44,7 +46,6 @@ export default function CandidateDetail() {
   const [candidate, setCandidate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -66,14 +67,6 @@ export default function CandidateDetail() {
     };
     fetch();
   }, [id]);
-
-  const handleCopyLinkedInLink = () => {
-    const link = `https://talentrank-backend.onrender.com/auth/linkedin/start?email=${candidate.email}`;
-    navigator.clipboard.writeText(link).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
 
   if (loading) return (
     <div className="max-w-5xl mx-auto animate-pulse px-4 sm:px-0">
@@ -98,6 +91,7 @@ export default function CandidateDetail() {
   const cvExperience = Array.isArray(profile.cv_experience) ? profile.cv_experience : [];
   const cvEducation = Array.isArray(profile.cv_education) ? profile.cv_education : [];
 
+  // Missing data flags — used to show placeholders instead of empty sections
   const linkedinUnavailable = !candidate.linkedin_connected || profile.raw_linkedin_data === null;
   const githubUnavailable = !candidate.github_url || candidate.github_url.toLowerCase().trim() === 'none';
   const portfolioUnavailable = !candidate.portfolio_url || candidate.portfolio_url.toLowerCase().trim() === 'none';
@@ -117,12 +111,14 @@ export default function CandidateDetail() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
             <Avatar name={candidate.name} large />
             <div className="flex-1 min-w-0">
+              {/* Guard: name may be missing */}
               <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight break-words">
                 {candidate.name || 'Unknown Candidate'}
               </h1>
               <p className="text-slate-400 mt-1 text-sm break-all">
                 {candidate.email || 'No email on record'}
               </p>
+              {/* Guard: domains may be empty — show nothing rather than empty row */}
               {domains.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {domains.map(tag => (
@@ -133,6 +129,7 @@ export default function CandidateDetail() {
                 </div>
               )}
             </div>
+            {/* Guard: only show years if it's a valid non-zero number */}
             {profile.experience_years != null && profile.experience_years > 0 && (
               <div className="text-center flex-shrink-0">
                 <div className="text-2xl font-extrabold text-white">{profile.experience_years}</div>
@@ -147,7 +144,7 @@ export default function CandidateDetail() {
         {/* Main column */}
         <div className="lg:col-span-2 space-y-6">
 
-          {/* Summary */}
+          {/* Summary — always rendered, shows placeholder if missing */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-8">
             <h2 className="text-lg font-bold text-[#0F172A] mb-4 flex items-center gap-2">
               <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs flex-shrink-0">AI</span>
@@ -162,13 +159,14 @@ export default function CandidateDetail() {
             )}
           </div>
 
-          {/* CV Information */}
+          {/* CV Information — always rendered with per-section placeholders */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-8">
             <h2 className="text-lg font-bold text-[#0F172A] mb-6 flex items-center gap-2">
               <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xs flex-shrink-0">CV</span>
               CV Information
             </h2>
 
+            {/* Skills from CV */}
             <div className="mb-6">
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Skills from CV</h3>
               {cvSkills.length > 0 ? (
@@ -184,12 +182,14 @@ export default function CandidateDetail() {
               )}
             </div>
 
+            {/* Work Experience */}
             <div className="mb-6">
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Work Experience</h3>
               {cvExperience.length > 0 ? (
                 <div className="space-y-3">
                   {cvExperience.map((exp, idx) => (
                     <div key={idx} className="rounded-xl border border-slate-100 p-4 bg-slate-50">
+                      {/* Guard: individual fields within experience may be missing */}
                       <p className="font-semibold text-[#0F172A] text-sm">{exp.role || 'Role not specified'}</p>
                       <p className="text-xs text-slate-500 mt-0.5">
                         {exp.company || 'Company not specified'}{exp.duration ? ` · ${exp.duration}` : ''}
@@ -202,12 +202,14 @@ export default function CandidateDetail() {
               )}
             </div>
 
+            {/* Education */}
             <div>
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Education</h3>
               {cvEducation.length > 0 ? (
                 <div className="space-y-3">
                   {cvEducation.map((edu, idx) => (
                     <div key={idx} className="rounded-xl border border-slate-100 p-4 bg-slate-50">
+                      {/* Guard: individual fields within education may be missing */}
                       <p className="font-semibold text-[#0F172A] text-sm">{edu.degree || 'Degree not specified'}</p>
                       <p className="text-xs text-slate-500 mt-0.5">
                         {edu.institution || 'Institution not specified'}{edu.year ? ` · ${edu.year}` : ''}
@@ -221,7 +223,7 @@ export default function CandidateDetail() {
             </div>
           </div>
 
-          {/* Projects */}
+          {/* Projects — always rendered, shows placeholder if empty */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-8">
             <h2 className="text-lg font-bold text-[#0F172A] mb-5">Top Projects</h2>
             {projects.length > 0 ? (
@@ -232,6 +234,7 @@ export default function CandidateDetail() {
                       <h3 className="font-bold text-[#0F172A] truncate group-hover:text-blue-600 transition-colors text-sm min-w-0">
                         {proj.name || 'Unnamed project'}
                       </h3>
+                      {/* Guard: stars may be null or 0 */}
                       {proj.stars != null && (
                         <div className="flex items-center text-amber-500 shrink-0 gap-1">
                           <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -256,7 +259,7 @@ export default function CandidateDetail() {
         {/* Sidebar */}
         <div className="space-y-6">
 
-          {/* Skills */}
+          {/* Skills — always rendered, shows placeholder if empty */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6">
             <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Skills Profile</h2>
             {skills.length > 0 ? (
@@ -272,48 +275,21 @@ export default function CandidateDetail() {
             )}
           </div>
 
-          {/* External Links */}
+          {/* External Links — always rendered with per-source placeholders */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6">
             <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">External Links</h2>
             <ul className="space-y-3">
 
-              {/* LinkedIn */}
+              {/* LinkedIn — shows 'Not available' placeholder when data missing */}
               {linkedinUnavailable ? (
-                <>
-                  <li className="flex items-center gap-3 text-sm font-medium text-slate-400">
-                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                      </svg>
-                    </div>
-                    LinkedIn not connected
-                  </li>
-                  {/* Copy LinkedIn Link button */}
-                  <li>
-                    <button
-                      onClick={handleCopyLinkedInLink}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-dashed border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors group"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-                        {copied ? (
-                          <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        ) : (
-                          <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        )}
-                      </div>
-                      <span className={`text-sm font-medium ${copied ? 'text-emerald-600' : 'text-blue-600'}`}>
-                        {copied ? 'Link Copied!' : 'Copy LinkedIn Link'}
-                      </span>
-                    </button>
-                    <p className="text-xs text-slate-400 mt-1.5 px-1">
-                      Share this link with the candidate to connect their LinkedIn.
-                    </p>
-                  </li>
-                </>
+                <li className="flex items-center gap-3 text-sm font-medium text-slate-400">
+                  <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                  </div>
+                  LinkedIn data unavailable
+                </li>
               ) : (
                 <li className="flex items-center gap-3 text-sm font-medium text-emerald-600">
                   <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
@@ -325,7 +301,7 @@ export default function CandidateDetail() {
                 </li>
               )}
 
-              {/* GitHub */}
+              {/* GitHub — shows 'Not available' placeholder when URL missing */}
               {githubUnavailable ? (
                 <li className="flex items-center gap-3 text-sm font-medium text-slate-400">
                   <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center flex-shrink-0">
@@ -349,7 +325,7 @@ export default function CandidateDetail() {
                 </li>
               )}
 
-              {/* Portfolio */}
+              {/* Portfolio — shows 'Not available' placeholder when URL missing */}
               {portfolioUnavailable ? (
                 <li className="flex items-center gap-3 text-sm font-medium text-slate-400">
                   <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center flex-shrink-0">
