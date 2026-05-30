@@ -168,7 +168,7 @@ def send_followup_email(candidate_email: str, candidate_name: str):
     import json as json_lib
 
     payload = {
-        "from": "TalentRank <onboarding@resend.dev>",
+        "from": "TalentRank <noreply@talentrank.online>",
         "to": [candidate_email],
         "subject": "Next Step: Connect your LinkedIn Profile",
         "text": f"Hi {candidate_name},\n\nThank you for applying! Please connect your LinkedIn profile:\n{link}\n\nThanks,\nThe TalentRank Team"
