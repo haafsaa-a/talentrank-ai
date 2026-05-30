@@ -159,19 +159,20 @@ async def process_cv(candidate_email: str, cv_url: str):
 
 def send_followup_email(candidate_email: str, candidate_name: str):
     if not settings.RESEND_API_KEY:
-        logger.warning(f"Resend not configured. Skipping email to {candidate_email}.")
+        logger.warning(f"Resend API key not configured. Skipping email to {candidate_email}.")
         return
 
     link = f"{settings.APP_BACKEND_URL}/auth/linkedin/start?email={candidate_email}"
 
     import urllib.request
+    import urllib.error
     import json as json_lib
 
     payload = {
         "from": "TalentRank <noreply@talentrank.online>",
         "to": [candidate_email],
         "subject": "Next Step: Connect your LinkedIn Profile",
-        "text": f"Hi {candidate_name},\n\nThank you for applying! Please connect your LinkedIn profile:\n{link}\n\nThanks,\nThe TalentRank Team"
+        "text": f"Hi {candidate_name},\n\nThank you for applying! Please connect your LinkedIn profile so our AI can review your application:\n{link}\n\nThanks,\nThe TalentRank Team"
     }
 
     try:
@@ -187,6 +188,9 @@ def send_followup_email(candidate_email: str, candidate_name: str):
         )
         urllib.request.urlopen(req)
         logger.info(f"Email sent successfully to {candidate_email}.")
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode()
+        logger.error(f"Resend error {e.code} for {candidate_email}: {error_body}")
     except Exception as e:
         logger.error(f"Failed to send email to {candidate_email}: {e}")
         
