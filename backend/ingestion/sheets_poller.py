@@ -164,9 +164,8 @@ def send_followup_email(candidate_email: str, candidate_name: str):
 
     link = f"{settings.APP_BACKEND_URL}/auth/linkedin/start?email={candidate_email}"
 
-    import urllib.request
-    import urllib.error
     import json as json_lib
+    import asyncio
 
     payload = {
         "from": "TalentRank <noreply@talentrank.online>",
@@ -175,22 +174,29 @@ def send_followup_email(candidate_email: str, candidate_name: str):
         "text": f"Hi {candidate_name},\n\nThank you for applying! Please connect your LinkedIn profile so our AI can review your application:\n{link}\n\nThanks,\nThe TalentRank Team"
     }
 
+    async def _send():
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "Mozilla/5.0 (compatible; TalentRank/1.0)"
+                },
+                json=payload,
+                timeout=30
+            )
+            if response.status_code == 200 or response.status_code == 201:
+                logger.info(f"Email sent successfully to {candidate_email}.")
+            else:
+                logger.error(f"Resend error {response.status_code} for {candidate_email}: {response.text}")
+
     try:
-        data = json_lib.dumps(payload).encode()
-        req = urllib.request.Request(
-            "https://api.resend.com/emails",
-            data=data,
-            headers={
-                "Authorization": f"Bearer {settings.RESEND_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            method="POST"
-        )
-        urllib.request.urlopen(req)
-        logger.info(f"Email sent successfully to {candidate_email}.")
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode()
-        logger.error(f"Resend error {e.code} for {candidate_email}: {error_body}")
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.ensure_future(_send())
+        else:
+            loop.run_until_complete(_send())
     except Exception as e:
         logger.error(f"Failed to send email to {candidate_email}: {e}")
         
