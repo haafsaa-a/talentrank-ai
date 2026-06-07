@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from datetime import datetime
 import uuid
+from sqlalchemy import cast, Text
 
 from database import get_db
 from models.candidate import Candidate, CandidateStatus
@@ -49,9 +50,9 @@ async def filter_candidates(
 ):
     stmt = select(Candidate).join(Profile).options(selectinload(Candidate.profile))
     if skill:
-        stmt = stmt.where(Profile.skills.cast(str).ilike(f"%{skill}%"))
+        stmt = stmt.where(cast(Profile.skills, Text).ilike(f"%{skill}%"))
     if domain:
-        stmt = stmt.where(Profile.domain_tags.cast(str).ilike(f"%{domain}%"))
+        stmt = stmt.where(cast(Profile.domain_tags, Text).ilike(f"%{domain}%"))
     result = await db.execute(stmt)
     candidates = result.scalars().all()
     return candidates
